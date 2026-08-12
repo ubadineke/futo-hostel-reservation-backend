@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Gender {
+  male
+  female
+  mixed
+  postgrad
+}
+
+// pending  = bed held, payment not yet confirmed
+// reserved = held via admin action without a payment step
+// paid     = payment confirmed by the Remita webhook, allocation final
+// cancelled = student- or admin-cancelled, or payment failed; bed freed
+enum ReservationStatus {
+  pending
+  reserved
+  paid
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+}
+
+model Student {
+  id           String   @id @default(uuid())
+  // Identifier at signup is a reg-no OR a school email — never both are known
+  // up front (see BACKEND-API.md `/auth/register`), so both are nullable and
+  // only the one supplied is unique-checked. name/dept/level are populated
+  // when derivable (email encodes surname.firstname) and null otherwise.
+  regNo        String?  @unique
+  email        String?  @unique
+  name         String?
+  dept         String?
+  level        String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  reservations Reservation[]
+}
+
+model Admin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Hostel {
+  id        String   @id
+  name      String
+  code      String
+  funder    String
+  gender    Gender
+  price     Int
+  roomSize  String
+  blurb     String
+  lat       Float
+  lng       Float
+  // ARGB cover colours (32-bit unsigned range) — stored as BigInt since
+  // Postgres `integer` is signed 32-bit and can't hold values like
+  // 0xFF1E3A8A (4280171146) without overflowing.
+  coverA    BigInt
+  coverB    BigInt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rooms        Room[]
+  reservations Reservation[]
+}
+
+// A room *type*/category within a hostel, not a single physical room.
+// `capacity` = beds per physical room of this type; the physical beds
+// themselves are the Bed rows below (bedsTotal = count of Bed rows).
+model Room {
+  id        String   @id @default(uuid())
+  hostelId  String
+  name      String
+  capacity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hostel       Hostel        @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  beds         Bed[]
+  reservations Reservation[]
+
+  @@index([hostelId])
+}
+
+model Bed {
+  id        String   @id @default(uuid())
+  roomId    String
+  number    Int
+  createdAt DateTime @default(now())
+
+  room         Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+
+  @@unique([roomId, number])
+}
+
+model Reservation {
+  id        String            @id @default(uuid())
+  reference String            @unique
+  rrr       String            @unique
+  studentId String
+  hostelId  String
+  roomId    String
+  // denormalised for display / receipt, per BACKEND-README.md §2
+  roomName  String
+  bedId     String
+  bedNumber Int
+  fee       Int
+  status    ReservationStatus @default(pending)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  student Student  @relation(fields: [studentId], references: [id])
+  hostel  Hostel   @relation(fields: [hostelId], references: [id])
+  room    Room     @relation(fields: [roomId], references: [id])
+  bed     Bed      @relation(fields: [bedId], references: [id])
+  payment Payment?
+
+  @@index([studentId])
+  @@index([hostelId])
+  @@index([bedId])
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  rrr           String        @unique
+  reservationId String        @unique
+  amount        Int
+  status        PaymentStatus @default(pending)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  reservation Reservation @relation(fields: [reservationId], references: [id])
+}
