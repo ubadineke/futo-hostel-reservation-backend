@@ -17,6 +17,7 @@ import { RemitaService } from './remita.service';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { PaymentDto, PaymentStatusDto } from './dto/payment.dto';
 import { RemitaWebhookDto } from './dto/remita-webhook.dto';
+import { SimulatePaymentDto } from './dto/simulate-payment.dto';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { InvalidSignatureException } from '../common/exceptions/domain.exception';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -56,6 +57,24 @@ export class PaymentsController {
   @Roles('student')
   getStatus(@CurrentUser() user: AuthUser, @Param('rrr') rrr: string): Promise<PaymentStatusDto> {
     return this.paymentsService.getStatus(user.id, rrr);
+  }
+
+  @Post(':rrr/simulate')
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Mock gateway — simulate finishing checkout on Remita (no real gateway exists)',
+  })
+  @ApiResponse({ status: 200, type: PaymentStatusDto })
+  @ApiResponse({ status: 403, type: ErrorResponseDto })
+  @ApiResponse({ status: 404, type: ErrorResponseDto })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('student')
+  simulate(
+    @CurrentUser() user: AuthUser,
+    @Param('rrr') rrr: string,
+    @Body() dto: SimulatePaymentDto,
+  ): Promise<PaymentStatusDto> {
+    return this.paymentsService.simulate(user.id, rrr, dto.outcome ?? 'success');
   }
 
   @Post('webhook/remita')

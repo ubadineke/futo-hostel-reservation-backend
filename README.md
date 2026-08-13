@@ -44,6 +44,11 @@ Demo logins (see `prisma/seed.ts`), password `Password123` for both:
 - **Remita is mocked**, per FR8. `RemitaService` only verifies an HMAC-SHA256
   signature (`x-remita-signature` header, shared secret
   `REMITA_WEBHOOK_SECRET`) on the inbound webhook; there's no outbound call to
-  a real Remita merchant API.
+  a real Remita merchant API. Since there's no real gateway page to redirect
+  the app to, `POST /payments/:rrr/simulate` (student-authenticated, body
+  `{ outcome?: "success" | "failed" }`, default `"success"`) stands in for it —
+  this is what the app should call instead of its current
+  `Future.delayed(1600ms)` fake. The HMAC webhook still exists alongside it
+  for when a real Remita integration replaces the mock.
 - **No reservation-hold expiry job** — neither doc specifies a hold duration,
   so a `pending` reservation blocks its bed until cancelled or paid/failed.

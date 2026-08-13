@@ -43,21 +43,42 @@ export class PaymentsService {
   async handleWebhook(dto: RemitaWebhookDto): Promise<void> {
     const payment = await this.prisma.payment.findUnique({ where: { rrr: dto.rrr } });
     if (!payment) throw new ResourceNotFoundException('Payment');
+    await this.applyOutcome(payment.id, payment.reservationId, dto.status);
+  }
 
+  /**
+   * Stands in for the Remita checkout page itself (FR8 is a "sandbox/mock
+   * gateway" — there's no real page to redirect to). The webhook can't be
+   * called by the app directly since that would mean shipping the HMAC
+   * secret inside the client; this is the student-authenticated equivalent
+   * of "the student finished paying on Remita's UI", replacing the app's
+   * `Future.delayed(1600ms)` fake (BACKEND-README.md §7).
+   */
+  async simulate(studentId: string, rrr: string, outcome: 'success' | 'failed'): Promise<PaymentStatusDto> {
+    const payment = await this.prisma.payment.findUnique({ where: { rrr }, include: { reservation: true } });
+    if (!payment) throw new ResourceNotFoundException('Payment');
+    if (payment.reservation.studentId !== studentId) throw new ForbiddenAccessException();
+
+    await this.applyOutcome(payment.id, payment.reservationId, outcome);
+    return { status: outcome === 'success' ? PaymentStatus.paid : PaymentStatus.failed };
+  }
+
+  private async applyOutcome(
+    paymentId: string,
+    reservationId: string,
+    outcome: 'success' | 'failed',
+  ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      if (dto.status === 'success') {
-        await tx.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.paid } });
+      if (outcome === 'success') {
+        await tx.payment.update({ where: { id: paymentId }, data: { status: PaymentStatus.paid } });
         // Bed was already held at reserve time; "confirm allocation" (FR8/FR9)
         // is this flip to paid.
-        await tx.reservation.update({
-          where: { id: payment.reservationId },
-          data: { status: ReservationStatus.paid },
-        });
+        await tx.reservation.update({ where: { id: reservationId }, data: { status: ReservationStatus.paid } });
       } else {
-        await tx.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.failed } });
+        await tx.payment.update({ where: { id: paymentId }, data: { status: PaymentStatus.failed } });
         // Failed payment frees the bed, same as a cancellation (BACKEND-README.md §4.2).
         await tx.reservation.update({
-          where: { id: payment.reservationId },
+          where: { id: reservationId },
           data: { status: ReservationStatus.cancelled },
         });
       }
