@@ -32,10 +32,13 @@ export class CreateHostelDto {
   @Min(0)
   price!: number;
 
-  @ApiProperty({ example: '8–10 per room' })
-  @IsString()
-  @IsNotEmpty()
-  roomSize!: string;
+  @ApiProperty({
+    example: 8,
+    description: 'Beds per room — fixed for the life of the hostel once any room is added',
+  })
+  @IsInt()
+  @Min(1)
+  capacity!: number;
 
   @ApiProperty({ example: 'A male school block close to the lecture halls.' })
   @IsString()

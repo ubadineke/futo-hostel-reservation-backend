@@ -40,14 +40,14 @@ export class AdminReservationsService {
       const conflicting = await tx.reservation.findFirst({
         where: { bedId: bed.id, status: { in: ACTIVE_RESERVATION_STATUSES }, NOT: { id } },
       });
-      if (conflicting) throw new BedTakenException(`Bed ${dto.bed} in ${room.name} is already taken.`);
+      if (conflicting) throw new BedTakenException(`Bed ${dto.bed} in Room ${room.index} is already taken.`);
 
       return tx.reservation.update({
         where: { id },
         data: {
           hostelId: room.hostelId,
           roomId: room.id,
-          roomName: room.name,
+          roomIndex: room.index,
           bedId: bed.id,
           bedNumber: bed.number,
         },

@@ -6,7 +6,10 @@ const prisma = new PrismaClient();
 
 const SEED_PASSWORD = 'Password123';
 
-type RoomSeed = { name: string; capacity: number; bedsAvailable: number; bedsTotal: number };
+// Each hostel has one room size, uniform across every physical room in it —
+// no more mixing e.g. 8-bed and 10-bed rooms within the same hostel.
+// `roomCount` and `bedsAvailable` are representative demo values (not
+// officially published FUTO figures, same caveat as the original seed).
 type HostelSeed = {
   id: string;
   name: string;
@@ -14,90 +17,64 @@ type HostelSeed = {
   funder: string;
   gender: Gender;
   price: number;
-  roomSize: string;
+  capacity: number;
+  roomCount: number;
+  bedsAvailable: number;
   lat: number;
   lng: number;
   coverA: bigint;
   coverB: bigint;
   blurb: string;
-  rooms: RoomSeed[];
 };
 
-// Values reproduced verbatim from BACKEND-README.md §8 / app/lib/core/demo/hostel_data.dart
 const HOSTELS: HostelSeed[] = [
   {
     id: 'A', name: 'Hostel A', code: 'A', funder: 'School', gender: Gender.male,
-    price: 42000, roomSize: '8–10 per room', lat: 5.3869, lng: 7.0341,
-    coverA: 0xff1e3a8an, coverB: 0xff2563ebn,
+    price: 42000, capacity: 8, roomCount: 11, bedsAvailable: 12,
+    lat: 5.3869, lng: 7.0341, coverA: 0xff1e3a8an, coverB: 0xff2563ebn,
     blurb: 'A male school block close to the lecture halls. Dense, lively, and the cheapest way to stay on campus.',
-    rooms: [
-      { name: '8-bed room', capacity: 8, bedsAvailable: 9, bedsTotal: 48 },
-      { name: '10-bed room', capacity: 10, bedsAvailable: 3, bedsTotal: 40 },
-    ],
   },
   {
     id: 'B', name: 'Hostel B', code: 'B', funder: 'School', gender: Gender.male,
-    price: 42000, roomSize: '8–10 per room', lat: 5.3872, lng: 7.0347,
-    coverA: 0xff312e81n, coverB: 0xff4f46e5n,
+    price: 42000, capacity: 8, roomCount: 12, bedsAvailable: 5,
+    lat: 5.3872, lng: 7.0347, coverA: 0xff312e81n, coverB: 0xff4f46e5n,
     blurb: 'Male school block beside Hostel A. Filling fast for the session.',
-    rooms: [
-      { name: '8-bed room', capacity: 8, bedsAvailable: 0, bedsTotal: 48 },
-      { name: '10-bed room', capacity: 10, bedsAvailable: 5, bedsTotal: 50 },
-    ],
   },
   {
     id: 'C', name: 'Hostel C', code: 'C', funder: 'School', gender: Gender.female,
-    price: 45000, roomSize: '6–8 per room', lat: 5.3858, lng: 7.0359,
-    coverA: 0xff0f766en, coverB: 0xff0ea5a4n,
+    price: 45000, capacity: 8, roomCount: 10, bedsAvailable: 13,
+    lat: 5.3858, lng: 7.0359, coverA: 0xff0f766en, coverB: 0xff0ea5a4n,
     blurb: 'A female block near TETFund. Calmer rooms with a little more space.',
-    rooms: [
-      { name: '6-bed room', capacity: 6, bedsAvailable: 7, bedsTotal: 36 },
-      { name: '8-bed room', capacity: 8, bedsAvailable: 6, bedsTotal: 48 },
-    ],
   },
   {
     id: 'D', name: 'Hostel D', code: 'D', funder: 'School', gender: Gender.female,
-    price: 45000, roomSize: '6–8 per room', lat: 5.3855, lng: 7.0364,
-    coverA: 0xff155e75n, coverB: 0xff0891b2n,
+    price: 45000, capacity: 8, roomCount: 8, bedsAvailable: 2,
+    lat: 5.3855, lng: 7.0364, coverA: 0xff155e75n, coverB: 0xff0891b2n,
     blurb: 'Female school block. Only a few beds remain this session.',
-    rooms: [
-      { name: '6-bed room', capacity: 6, bedsAvailable: 2, bedsTotal: 36 },
-      { name: '8-bed room', capacity: 8, bedsAvailable: 0, bedsTotal: 32 },
-    ],
   },
   {
     id: 'E', name: 'Hostel E', code: 'E', funder: 'School', gender: Gender.male,
-    price: 42000, roomSize: '8–10 per room', lat: 5.3877, lng: 7.0338,
-    coverA: 0xff1e293bn, coverB: 0xff334155n,
+    price: 42000, capacity: 8, roomCount: 8, bedsAvailable: 0,
+    lat: 5.3877, lng: 7.0338, coverA: 0xff1e293bn, coverB: 0xff334155n,
     blurb: 'Male school block on the far side. Fully booked for now — check back later.',
-    rooms: [{ name: '8-bed room', capacity: 8, bedsAvailable: 0, bedsTotal: 64 }],
   },
   {
     id: 'TETFUND', name: 'TETFund Hostel', code: 'TF', funder: 'TETFund', gender: Gender.mixed,
-    price: 90000, roomSize: '4 per room (en-suite)', lat: 5.3851, lng: 7.0366,
-    coverA: 0xff1d4ed8n, coverB: 0xff3b82f6n,
+    price: 90000, capacity: 4, roomCount: 20, bedsAvailable: 8,
+    lat: 5.3851, lng: 7.0366, coverA: 0xff1d4ed8n, coverB: 0xff3b82f6n,
     blurb: 'The newest, most comfortable block — four to a room, en-suite, mixed and floor-segregated.',
-    rooms: [{ name: '4-bed room (en-suite)', capacity: 4, bedsAvailable: 8, bedsTotal: 80 }],
   },
   {
     id: 'NDDC', name: 'NDDC Hostel', code: 'ND', funder: 'NDDC', gender: Gender.mixed,
-    price: 62500, roomSize: '3–4 per room', lat: 5.3848, lng: 7.0371,
-    coverA: 0xff134e4an, coverB: 0xff0d9488n,
+    price: 62500, capacity: 4, roomCount: 25, bedsAvailable: 10,
+    lat: 5.3848, lng: 7.0371, coverA: 0xff134e4an, coverB: 0xff0d9488n,
     blurb: 'Lower-density, two-storey block housing both genders by floor. Premium comfort for the price.',
-    rooms: [
-      { name: '4-bed room', capacity: 4, bedsAvailable: 6, bedsTotal: 64 },
-      { name: '3-bed room', capacity: 3, bedsAvailable: 4, bedsTotal: 36 },
-    ],
   },
   {
     id: 'PG', name: 'PG Hostel', code: 'PG', funder: 'Postgraduate', gender: Gender.postgrad,
-    price: 75000, roomSize: '1–2 per room', lat: 5.3845, lng: 7.0331,
-    coverA: 0xff4c1d95n, coverB: 0xff6d28d9n,
-    blurb: 'Quiet quarters for postgraduate students — one or two to a room for focused study.',
-    rooms: [
-      { name: '2-bed room', capacity: 2, bedsAvailable: 5, bedsTotal: 40 },
-      { name: '1-bed studio', capacity: 1, bedsAvailable: 2, bedsTotal: 12 },
-    ],
+    price: 75000, capacity: 6, roomCount: 9, bedsAvailable: 7,
+    lat: 5.3845, lng: 7.0331, coverA: 0xff4c1d95n, coverB: 0xff6d28d9n,
+    blurb: 'Quiet quarters for postgraduate students, six to a room.',
   },
 ];
 
@@ -130,15 +107,15 @@ async function main() {
     },
   });
 
-  // Occupied beds are backfilled with synthetic "filler" students/reservations so
-  // GET /hostels reports the exact bedsAvailable figures from BACKEND-README.md §8.
+  // Occupied beds are backfilled with synthetic "filler" students/reservations
+  // so GET /hostels reports the target bedsAvailable figures above.
   let fillerCount = 0;
   const fillerStudents: {
     id: string; regNo: string; email: string; name: string; dept: string; level: string; passwordHash: string;
   }[] = [];
   const fillerReservations: {
     id: string; reference: string; rrr: string; studentId: string; hostelId: string; roomId: string;
-    roomName: string; bedId: string; bedNumber: number; fee: number; status: ReservationStatus;
+    roomIndex: number; bedId: string; bedNumber: number; fee: number; status: ReservationStatus;
   }[] = [];
   const fillerPayments: {
     id: string; rrr: string; reservationId: string; amount: number; status: PaymentStatus;
@@ -146,37 +123,42 @@ async function main() {
 
   let pastBookingBedId = '';
   let pastBookingRoomId = '';
+  let pastBookingRoomIndex = 0;
 
   for (const h of HOSTELS) {
     await prisma.hostel.create({
       data: {
         id: h.id, name: h.name, code: h.code, funder: h.funder, gender: h.gender,
-        price: h.price, roomSize: h.roomSize, blurb: h.blurb, lat: h.lat, lng: h.lng,
+        price: h.price, capacity: h.capacity, blurb: h.blurb, lat: h.lat, lng: h.lng,
         coverA: h.coverA, coverB: h.coverB,
       },
     });
 
-    for (const r of h.rooms) {
+    const bedsTotal = h.capacity * h.roomCount;
+    let remainingToOccupy = bedsTotal - h.bedsAvailable;
+
+    for (let roomIndex = 1; roomIndex <= h.roomCount; roomIndex++) {
       const roomId = randomUUID();
-      await prisma.room.create({
-        data: { id: roomId, hostelId: h.id, name: r.name, capacity: r.capacity },
-      });
+      await prisma.room.create({ data: { id: roomId, hostelId: h.id, index: roomIndex } });
 
       const bedIds: string[] = [];
-      const bedsData = Array.from({ length: r.bedsTotal }, (_, i) => {
+      const bedsData = Array.from({ length: h.capacity }, (_, i) => {
         const bedId = randomUUID();
         bedIds.push(bedId);
         return { id: bedId, roomId, number: i + 1 };
       });
       await prisma.bed.createMany({ data: bedsData });
 
-      if (h.id === 'NDDC' && r.name === '4-bed room') {
+      if (h.id === 'NDDC' && roomIndex === 1) {
         pastBookingBedId = bedIds[1]; // bed 2 — used by the seeded past booking below
         pastBookingRoomId = roomId;
+        pastBookingRoomIndex = roomIndex;
       }
 
-      const occupied = r.bedsTotal - r.bedsAvailable;
-      for (let i = 0; i < occupied; i++) {
+      const occupiedHere = Math.min(h.capacity, Math.max(0, remainingToOccupy));
+      remainingToOccupy -= occupiedHere;
+
+      for (let i = 0; i < occupiedHere; i++) {
         fillerCount += 1;
         const regNo = String(90000000000 + fillerCount);
         const studentId = randomUUID();
@@ -195,7 +177,7 @@ async function main() {
         const rrr = String(200000000000 + fillerCount);
         fillerReservations.push({
           id: reservationId, reference, rrr, studentId, hostelId: h.id, roomId,
-          roomName: r.name, bedId: bedIds[i], bedNumber: i + 1, fee: h.price,
+          roomIndex, bedId: bedIds[i], bedNumber: i + 1, fee: h.price,
           status: ReservationStatus.paid,
         });
         fillerPayments.push({
@@ -209,8 +191,7 @@ async function main() {
   await prisma.reservation.createMany({ data: fillerReservations });
   await prisma.payment.createMany({ data: fillerPayments });
 
-  // One seeded past (cancelled) booking so the demo student's history isn't empty,
-  // per BACKEND-README.md §8.
+  // One seeded past (cancelled) booking so the demo student's history isn't empty.
   await prisma.reservation.create({
     data: {
       reference: 'RST-7F3A21',
@@ -218,7 +199,7 @@ async function main() {
       studentId: demoStudent.id,
       hostelId: 'NDDC',
       roomId: pastBookingRoomId,
-      roomName: '4-bed room',
+      roomIndex: pastBookingRoomIndex,
       bedId: pastBookingBedId,
       bedNumber: 2,
       fee: 62500,

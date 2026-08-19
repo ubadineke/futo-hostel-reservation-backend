@@ -36,6 +36,17 @@ export class AdminHostelsService {
   async update(id: string, dto: UpdateHostelDto): Promise<HostelDetailDto> {
     await this.ensureExists(id);
 
+    if (dto.capacity !== undefined) {
+      const roomCount = await this.prisma.room.count({ where: { hostelId: id } });
+      if (roomCount > 0) {
+        throw new DomainException(
+          'CAPACITY_LOCKED',
+          'capacity is fixed once a hostel has rooms — remove all rooms first if it genuinely needs to change.',
+          HttpStatus.CONFLICT,
+        );
+      }
+    }
+
     const { coverA, coverB, ...rest } = dto;
     await this.prisma.hostel.update({
       where: { id },

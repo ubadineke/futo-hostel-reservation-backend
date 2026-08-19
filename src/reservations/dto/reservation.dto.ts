@@ -20,10 +20,10 @@ export class ReservationDto {
   @ApiProperty({ example: 'a1b2c3d4-...' })
   roomId!: string;
 
-  @ApiProperty({ example: '4-bed room (en-suite)' })
-  roomName!: string;
+  @ApiProperty({ example: 2, description: 'Which physical room ("Room 2")' })
+  roomIndex!: number;
 
-  @ApiProperty({ example: 3 })
+  @ApiProperty({ example: 3, description: 'Bed number local to that room' })
   bed!: number;
 
   @ApiProperty({ example: 90000 })

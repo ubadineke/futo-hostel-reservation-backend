@@ -21,7 +21,10 @@ export class HostelDto {
   @ApiProperty({ example: 42000, description: 'Naira per session, integer' })
   price!: number;
 
-  @ApiProperty({ example: '8–10 per room' })
+  @ApiProperty({ example: 8, description: 'Beds per room — the same for every room in this hostel' })
+  capacity!: number;
+
+  @ApiProperty({ example: '8 per room', description: 'Display string derived from capacity' })
   roomSize!: string;
 
   @ApiProperty({ example: 12 })

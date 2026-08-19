@@ -10,7 +10,6 @@ import {
   ResourceNotFoundException,
 } from '../common/exceptions/domain.exception';
 import { generateReference, generateRrr } from '../common/utils/reference.util';
-import { fromGlobalBedNumber } from '../common/utils/room-instances.util';
 import { resolveEmailForPaystack } from '../common/utils/student.util';
 import { PaystackService } from '../payments/paystack.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
@@ -67,20 +66,14 @@ export class ReservationsService {
       });
       const freeBeds = beds.filter((bed) => bed.reservations.length === 0);
       if (freeBeds.length === 0) {
-        throw new BedTakenException(`${room.name} has no free beds left.`);
+        throw new BedTakenException(`Room ${room.index} has no free beds left.`);
       }
 
-      // The client's bed number is a preference (BACKEND-README.md §6). If
-      // taken, prefer another free bed in the *same* physical room (the
-      // student picked that room specifically) before falling back to a
-      // different room entirely (lowest-numbered free bed overall, FCFS).
-      const { instanceIndex } = fromGlobalBedNumber(dto.bed, room.capacity);
-      const sameRoomStart = (instanceIndex - 1) * room.capacity + 1;
-      const sameRoomEnd = sameRoomStart + room.capacity - 1;
-      const assigned =
-        freeBeds.find((bed) => bed.number === dto.bed) ??
-        freeBeds.find((bed) => bed.number >= sameRoomStart && bed.number <= sameRoomEnd) ??
-        freeBeds[0];
+      // The client's bed number is a preference (BACKEND-README.md §6) — assign
+      // it if still free, otherwise the lowest-numbered free bed in the same
+      // room they picked. Unlike bed choice, which room is only ever what the
+      // student explicitly selected — no silent reassignment to another room.
+      const assigned = freeBeds.find((bed) => bed.number === dto.bed) ?? freeBeds[0];
 
       const created = await tx.reservation.create({
         data: {
@@ -89,7 +82,7 @@ export class ReservationsService {
           studentId,
           hostelId: dto.hostelId,
           roomId: dto.roomId,
-          roomName: room.name,
+          roomIndex: room.index,
           bedId: assigned.id,
           bedNumber: assigned.number,
           fee: hostel.price,
@@ -163,7 +156,7 @@ export function toReservationDto(reservation: Reservation): ReservationDto {
     studentId: reservation.studentId,
     hostelId: reservation.hostelId,
     roomId: reservation.roomId,
-    roomName: reservation.roomName,
+    roomIndex: reservation.roomIndex,
     bed: reservation.bedNumber,
     fee: reservation.fee,
     status: reservation.status,

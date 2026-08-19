@@ -42,7 +42,7 @@ CREATE TABLE "Hostel" (
     "funder" TEXT NOT NULL,
     "gender" "Gender" NOT NULL,
     "price" INTEGER NOT NULL,
-    "roomSize" TEXT NOT NULL,
+    "capacity" INTEGER NOT NULL,
     "blurb" TEXT NOT NULL,
     "lat" DOUBLE PRECISION NOT NULL,
     "lng" DOUBLE PRECISION NOT NULL,
@@ -58,8 +58,7 @@ CREATE TABLE "Hostel" (
 CREATE TABLE "Room" (
     "id" TEXT NOT NULL,
     "hostelId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "capacity" INTEGER NOT NULL,
+    "index" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -84,7 +83,7 @@ CREATE TABLE "Reservation" (
     "studentId" TEXT NOT NULL,
     "hostelId" TEXT NOT NULL,
     "roomId" TEXT NOT NULL,
-    "roomName" TEXT NOT NULL,
+    "roomIndex" INTEGER NOT NULL,
     "bedId" TEXT NOT NULL,
     "bedNumber" INTEGER NOT NULL,
     "fee" INTEGER NOT NULL,
@@ -101,6 +100,7 @@ CREATE TABLE "Payment" (
     "rrr" TEXT NOT NULL,
     "reservationId" TEXT NOT NULL,
     "amount" INTEGER NOT NULL,
+    "authorizationUrl" TEXT,
     "status" "PaymentStatus" NOT NULL DEFAULT 'pending',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -119,6 +119,9 @@ CREATE UNIQUE INDEX "Admin_email_key" ON "Admin"("email");
 
 -- CreateIndex
 CREATE INDEX "Room_hostelId_idx" ON "Room"("hostelId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Room_hostelId_index_key" ON "Room"("hostelId", "index");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Bed_roomId_number_key" ON "Bed"("roomId", "number");
