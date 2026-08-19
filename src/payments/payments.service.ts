@@ -2,25 +2,33 @@ import { Injectable } from '@nestjs/common';
 import { Payment, PaymentStatus, ReservationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ForbiddenAccessException, ResourceNotFoundException } from '../common/exceptions/domain.exception';
+import { resolveEmailForPaystack } from '../common/utils/student.util';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { PaymentDto, PaymentStatusDto } from './dto/payment.dto';
-import { RemitaWebhookDto } from './dto/remita-webhook.dto';
+import { PaystackService } from './paystack.service';
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly paystack: PaystackService) {}
 
   async initiate(studentId: string, dto: InitiatePaymentDto): Promise<PaymentDto> {
     const reservation = await this.prisma.reservation.findUnique({
       where: { id: dto.reservationId },
-      include: { payment: true },
+      include: { payment: true, student: true },
     });
     if (!reservation) throw new ResourceNotFoundException('Reservation');
     if (reservation.studentId !== studentId) throw new ForbiddenAccessException();
 
-    // POST /reservations already opens a Payment row; this is kept idempotent
-    // since BACKEND-README.md §3.4 allows folding initiate into that step.
+    // POST /reservations already opens a Payment row (with its Paystack
+    // authorization already initialized); this stays idempotent since
+    // BACKEND-README.md §3.4 allows folding initiate into that step.
     if (reservation.payment) return toPaymentDto(reservation.payment);
+
+    const init = await this.paystack.initializeTransaction({
+      email: resolveEmailForPaystack(reservation.student),
+      amountNaira: reservation.fee,
+      reference: reservation.rrr,
+    });
 
     const payment = await this.prisma.payment.create({
       data: {
@@ -28,31 +36,55 @@ export class PaymentsService {
         reservationId: reservation.id,
         amount: reservation.fee,
         status: PaymentStatus.pending,
+        authorizationUrl: init.authorizationUrl,
       },
     });
     return toPaymentDto(payment);
   }
 
+  /**
+   * Poll-based confirmation (no webhook): the app calls this after sending the
+   * student to `authorizationUrl`. A `pending` payment is checked live against
+   * Paystack's verify endpoint; anything already resolved is returned straight
+   * from the DB without hitting Paystack again.
+   */
   async getStatus(studentId: string, rrr: string): Promise<PaymentStatusDto> {
     const payment = await this.prisma.payment.findUnique({ where: { rrr }, include: { reservation: true } });
     if (!payment) throw new ResourceNotFoundException('Payment');
     if (payment.reservation.studentId !== studentId) throw new ForbiddenAccessException();
-    return { status: payment.status };
-  }
 
-  async handleWebhook(dto: RemitaWebhookDto): Promise<void> {
-    const payment = await this.prisma.payment.findUnique({ where: { rrr: dto.rrr } });
-    if (!payment) throw new ResourceNotFoundException('Payment');
-    await this.applyOutcome(payment.id, payment.reservationId, dto.status);
+    if (payment.status !== PaymentStatus.pending) return { status: payment.status };
+
+    const verified = await this.paystack.verifyTransaction(rrr);
+
+    if (verified.status === 'success') {
+      // Amount is attacker/tamper-proofed on Paystack's side, not ours — a
+      // mismatch here means something is wrong; don't trust it as paid.
+      if (verified.amountKobo !== Math.round(payment.amount * 100)) {
+        return { status: PaymentStatus.pending };
+      }
+      await this.applyOutcome(payment.id, payment.reservationId, 'success');
+      return { status: PaymentStatus.paid };
+    }
+
+    // NOT "abandoned" — Paystack reports a transaction as abandoned almost
+    // immediately after initialize, before the student has even opened the
+    // checkout page (confirmed by testing). Treating that as a hard failure
+    // would cancel the reservation and free the bed out from under someone
+    // mid-payment. Only an explicit "failed" (e.g. a declined card) is a real
+    // failure; anything else just stays pending — consistent with there
+    // being no hold-expiry job (see README).
+    if (verified.status === 'failed') {
+      await this.applyOutcome(payment.id, payment.reservationId, 'failed');
+      return { status: PaymentStatus.failed };
+    }
+
+    return { status: PaymentStatus.pending };
   }
 
   /**
-   * Stands in for the Remita checkout page itself (FR8 is a "sandbox/mock
-   * gateway" — there's no real page to redirect to). The webhook can't be
-   * called by the app directly since that would mean shipping the HMAC
-   * secret inside the client; this is the student-authenticated equivalent
-   * of "the student finished paying on Remita's UI", replacing the app's
-   * `Future.delayed(1600ms)` fake (BACKEND-README.md §7).
+   * Offline/no-internet fallback that bypasses Paystack entirely — useful for
+   * demoing without depending on Paystack's sandbox being reachable.
    */
   async simulate(studentId: string, rrr: string, outcome: 'success' | 'failed'): Promise<PaymentStatusDto> {
     const payment = await this.prisma.payment.findUnique({ where: { rrr }, include: { reservation: true } });
@@ -92,5 +124,6 @@ function toPaymentDto(payment: Payment): PaymentDto {
     reservationId: payment.reservationId,
     amount: payment.amount,
     status: payment.status,
+    authorizationUrl: payment.authorizationUrl,
   };
 }

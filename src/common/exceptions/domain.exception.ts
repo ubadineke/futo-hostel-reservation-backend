@@ -53,8 +53,3 @@ export class IdentifierTakenException extends DomainException {
   }
 }
 
-export class InvalidSignatureException extends DomainException {
-  constructor(message = 'Invalid webhook signature.') {
-    super('INVALID_SIGNATURE', message, HttpStatus.UNAUTHORIZED);
-  }
-}

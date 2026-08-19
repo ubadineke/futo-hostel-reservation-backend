@@ -45,6 +45,12 @@ export class ReservationPaymentDto {
 
   @ApiProperty({ example: 'pending' })
   status!: 'pending' | 'paid' | 'failed';
+
+  @ApiProperty({
+    example: 'https://checkout.paystack.com/abcd1234',
+    description: "Open this to pay — Paystack's hosted checkout page (test/sandbox mode)",
+  })
+  authorizationUrl!: string;
 }
 
 export class CreateReservationResponseDto {

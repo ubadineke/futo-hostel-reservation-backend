@@ -10,21 +10,47 @@ import {
   ResourceNotFoundException,
 } from '../common/exceptions/domain.exception';
 import { generateReference, generateRrr } from '../common/utils/reference.util';
+import { resolveEmailForPaystack } from '../common/utils/student.util';
+import { PaystackService } from '../payments/paystack.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { CreateReservationResponseDto, ReservationDto } from './dto/reservation.dto';
 
 @Injectable()
 export class ReservationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly paystack: PaystackService) {}
 
   async create(studentId: string, dto: CreateReservationDto): Promise<CreateReservationResponseDto> {
+    const [student, hostel, room] = await Promise.all([
+      this.prisma.student.findUniqueOrThrow({ where: { id: studentId } }),
+      this.prisma.hostel.findUnique({ where: { id: dto.hostelId } }),
+      this.prisma.room.findUnique({ where: { id: dto.roomId } }),
+    ]);
+    if (!hostel) throw new ResourceNotFoundException('Hostel');
+    if (!room || room.hostelId !== dto.hostelId) throw new ResourceNotFoundException('Room');
+
+    // Best-effort pre-check to avoid wasting a Paystack call on a request
+    // that's obviously doomed; re-checked authoritatively inside the lock below.
+    const preExistingActive = await this.prisma.reservation.findFirst({
+      where: { studentId, status: { in: ACTIVE_RESERVATION_STATUSES } },
+    });
+    if (preExistingActive) throw new AlreadyHasActiveReservationException();
+
+    // Talk to Paystack *before* opening a DB transaction — an external HTTP
+    // round-trip has no business holding a row lock / DB connection open. If
+    // this fails, nothing has been written yet. If the DB step below fails
+    // instead, the Paystack transaction is simply abandoned — harmless in
+    // sandbox mode.
+    const rrr = generateRrr();
+    const init = await this.paystack.initializeTransaction({
+      email: resolveEmailForPaystack(student),
+      amountNaira: hostel.price,
+      reference: rrr,
+    });
+
     const reservation = await this.prisma.$transaction(async (tx) => {
       // Lock the room row so two concurrent reservations for it serialize
       // instead of both reading the same "free beds" snapshot.
       await tx.$queryRaw`SELECT id FROM "Room" WHERE id = ${dto.roomId} FOR UPDATE`;
-
-      const room = await tx.room.findUnique({ where: { id: dto.roomId } });
-      if (!room || room.hostelId !== dto.hostelId) throw new ResourceNotFoundException('Room');
 
       const activeReservation = await tx.reservation.findFirst({
         where: { studentId, status: { in: ACTIVE_RESERVATION_STATUSES } },
@@ -47,12 +73,10 @@ export class ReservationsService {
       // it if still free, otherwise the lowest-numbered free bed (FCFS).
       const assigned = freeBeds.find((bed) => bed.number === dto.bed) ?? freeBeds[0];
 
-      const hostel = await tx.hostel.findUniqueOrThrow({ where: { id: dto.hostelId } });
-
       const created = await tx.reservation.create({
         data: {
           reference: generateReference(),
-          rrr: generateRrr(),
+          rrr,
           studentId,
           hostelId: dto.hostelId,
           roomId: dto.roomId,
@@ -70,6 +94,7 @@ export class ReservationsService {
           reservationId: created.id,
           amount: created.fee,
           status: PaymentStatus.pending,
+          authorizationUrl: init.authorizationUrl,
         },
       });
 
@@ -78,7 +103,12 @@ export class ReservationsService {
 
     return {
       reservation: toReservationDto(reservation),
-      payment: { rrr: reservation.rrr, amount: reservation.fee, status: 'pending' },
+      payment: {
+        rrr: reservation.rrr,
+        amount: reservation.fee,
+        status: 'pending',
+        authorizationUrl: init.authorizationUrl,
+      },
     };
   }
 

@@ -139,13 +139,21 @@ model Reservation {
 }
 
 model Payment {
-  id            String        @id @default(uuid())
+  id     String @id @default(uuid())
+  // Paystack's transaction `reference` — we generate this ourselves (kept
+  // RRR-shaped: 12 digits) and pass it to Paystack rather than letting
+  // Paystack generate its own, so the field stays what BACKEND-API.md documents.
   rrr           String        @unique
   reservationId String        @unique
   amount        Int
-  status        PaymentStatus @default(pending)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  // Paystack's hosted checkout page for this transaction (test/sandbox mode
+  // only — see PaystackService). Nullable at the schema level for safety,
+  // but always set in practice since every code path that creates a Payment
+  // gets it from Paystack's initialize response first.
+  authorizationUrl String?
+  status           PaymentStatus @default(pending)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   reservation Reservation @relation(fields: [reservationId], references: [id])
 }

@@ -5,9 +5,7 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
-  // rawBody is needed to verify the Remita webhook's HMAC signature against
-  // the exact bytes that were signed, before class-transformer touches them.
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api/v1');
 
