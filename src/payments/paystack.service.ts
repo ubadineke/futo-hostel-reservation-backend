@@ -44,12 +44,22 @@ export class PaystackService {
       email: params.email,
       amount: Math.round(params.amountNaira * 100), // Paystack wants kobo
       reference: params.reference,
+      // Without this, Paystack has nowhere reliable to redirect to after
+      // checkout — the mobile app's WebView intercepts navigation to this
+      // URL (before it actually loads) as the "checkout finished" signal.
+      callback_url: this.callbackUrl,
     });
     return {
       authorizationUrl: body.data.authorization_url,
       accessCode: body.data.access_code,
       reference: body.data.reference,
     };
+  }
+
+  /** GET /payments/callback — see PaymentsController. */
+  get callbackUrl(): string {
+    const base = (this.config.get<string>('PUBLIC_APP_URL') ?? 'http://localhost:3000').replace(/\/$/, '');
+    return `${base}/api/v1/payments/callback`;
   }
 
   async verifyTransaction(reference: string): Promise<PaystackVerifyResult> {
