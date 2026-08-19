@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ACTIVE_RESERVATION_STATUSES } from '../common/constants';
 import { ResourceNotFoundException } from '../common/exceptions/domain.exception';
+import { computeRoomInstances } from '../common/utils/room-instances.util';
 import { hostelStatus, roomStatus } from '../common/utils/status.util';
 import { HostelQueryDto } from './dto/hostel-query.dto';
 import { HostelDetailDto, HostelDto } from './dto/hostel.dto';
@@ -58,11 +59,9 @@ export class HostelsService {
 function roomsWithComputed(hostel: HostelWithRooms): RoomDto[] {
   return hostel.rooms.map((room) => {
     const bedsTotal = room.beds.length;
-    const occupiedBeds = room.beds
-      .filter((bed) => bed.reservations.length > 0)
-      .map((bed) => bed.number)
-      .sort((a, b) => a - b);
-    const bedsAvailable = bedsTotal - occupiedBeds.length;
+    const instances = computeRoomInstances(room.beds, room.capacity);
+    const occupiedCount = instances.reduce((sum, inst) => sum + inst.occupiedBeds.length, 0);
+    const bedsAvailable = bedsTotal - occupiedCount;
     return {
       id: room.id,
       hostelId: room.hostelId,
@@ -71,7 +70,7 @@ function roomsWithComputed(hostel: HostelWithRooms): RoomDto[] {
       bedsAvailable,
       bedsTotal,
       status: roomStatus(bedsAvailable),
-      occupiedBeds,
+      instances,
     };
   });
 }

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ACTIVE_RESERVATION_STATUSES } from '../common/constants';
 import { DomainException, ResourceNotFoundException } from '../common/exceptions/domain.exception';
+import { computeRoomInstances } from '../common/utils/room-instances.util';
 import { roomStatus } from '../common/utils/status.util';
 import { RoomDto } from '../hostels/dto/room.dto';
 import { CreateRoomDto, UpdateRoomDto } from './dto/create-room.dto';
@@ -117,11 +118,9 @@ export class AdminRoomsService {
 
 function toRoomDto(room: RoomWithBeds): RoomDto {
   const bedsTotal = room.beds.length;
-  const occupiedBeds = room.beds
-    .filter((bed) => bed.reservations.length > 0)
-    .map((bed) => bed.number)
-    .sort((a, b) => a - b);
-  const bedsAvailable = bedsTotal - occupiedBeds.length;
+  const instances = computeRoomInstances(room.beds, room.capacity);
+  const occupiedCount = instances.reduce((sum, inst) => sum + inst.occupiedBeds.length, 0);
+  const bedsAvailable = bedsTotal - occupiedCount;
 
   return {
     id: room.id,
@@ -131,6 +130,6 @@ function toRoomDto(room: RoomWithBeds): RoomDto {
     bedsAvailable,
     bedsTotal,
     status: roomStatus(bedsAvailable),
-    occupiedBeds,
+    instances,
   };
 }

@@ -10,6 +10,7 @@ import {
   ResourceNotFoundException,
 } from '../common/exceptions/domain.exception';
 import { generateReference, generateRrr } from '../common/utils/reference.util';
+import { fromGlobalBedNumber } from '../common/utils/room-instances.util';
 import { resolveEmailForPaystack } from '../common/utils/student.util';
 import { PaystackService } from '../payments/paystack.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
@@ -69,9 +70,17 @@ export class ReservationsService {
         throw new BedTakenException(`${room.name} has no free beds left.`);
       }
 
-      // The client's bed number is a preference (BACKEND-README.md §6) — assign
-      // it if still free, otherwise the lowest-numbered free bed (FCFS).
-      const assigned = freeBeds.find((bed) => bed.number === dto.bed) ?? freeBeds[0];
+      // The client's bed number is a preference (BACKEND-README.md §6). If
+      // taken, prefer another free bed in the *same* physical room (the
+      // student picked that room specifically) before falling back to a
+      // different room entirely (lowest-numbered free bed overall, FCFS).
+      const { instanceIndex } = fromGlobalBedNumber(dto.bed, room.capacity);
+      const sameRoomStart = (instanceIndex - 1) * room.capacity + 1;
+      const sameRoomEnd = sameRoomStart + room.capacity - 1;
+      const assigned =
+        freeBeds.find((bed) => bed.number === dto.bed) ??
+        freeBeds.find((bed) => bed.number >= sameRoomStart && bed.number <= sameRoomEnd) ??
+        freeBeds[0];
 
       const created = await tx.reservation.create({
         data: {
