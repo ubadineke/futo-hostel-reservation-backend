@@ -28,7 +28,7 @@ type HostelSeed = {
 const HOSTELS: HostelSeed[] = [
   {
     id: 'A', name: 'Hostel A', code: 'A', funder: 'School', gender: Gender.male,
-    price: 42000, capacity: 8, roomCount: 11, lat: 5.3869, lng: 7.0341,
+    price: 100, capacity: 8, roomCount: 11, lat: 5.3869, lng: 7.0341,
     coverA: 0xff1e3a8an, coverB: 0xff2563ebn,
     blurb: 'A male school block close to the lecture halls. Dense, lively, and the cheapest way to stay on campus.',
   },

@@ -4,7 +4,8 @@ import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
-const SEED_PASSWORD = 'Password123';
+const STUDENT_SEED_PASSWORD = 'Password123';
+const ADMIN_SEED_PASSWORD = 'hosteladmin01';
 
 // Each hostel has one room size, uniform across every physical room in it —
 // no more mixing e.g. 8-bed and 10-bed rooms within the same hostel.
@@ -30,7 +31,7 @@ type HostelSeed = {
 const HOSTELS: HostelSeed[] = [
   {
     id: 'A', name: 'Hostel A', code: 'A', funder: 'School', gender: Gender.male,
-    price: 42000, capacity: 8, roomCount: 11, bedsAvailable: 12,
+    price: 100, capacity: 8, roomCount: 11, bedsAvailable: 12,
     lat: 5.3869, lng: 7.0341, coverA: 0xff1e3a8an, coverB: 0xff2563ebn,
     blurb: 'A male school block close to the lecture halls. Dense, lively, and the cheapest way to stay on campus.',
   },
@@ -90,10 +91,17 @@ async function main() {
   await prisma.student.deleteMany();
   await prisma.admin.deleteMany();
 
-  const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
+  const [studentPasswordHash, adminPasswordHash] = await Promise.all([
+    bcrypt.hash(STUDENT_SEED_PASSWORD, 10),
+    bcrypt.hash(ADMIN_SEED_PASSWORD, 10),
+  ]);
 
   await prisma.admin.create({
-    data: { email: 'admin@futo.edu.ng', name: 'Hostel Officer', passwordHash },
+    data: {
+      email: 'hosteladmin@futo.com',
+      name: 'Hostel Officer',
+      passwordHash: adminPasswordHash,
+    },
   });
 
   const demoStudent = await prisma.student.create({
@@ -103,7 +111,7 @@ async function main() {
       name: 'Dominion Nwakanma',
       dept: 'Software Engineering',
       level: '400 Level',
-      passwordHash,
+      passwordHash: studentPasswordHash,
     },
   });
 
@@ -169,7 +177,7 @@ async function main() {
           name: 'Filler Student',
           dept: 'General Studies',
           level: fillerCount % 5 === 0 ? '100 Level' : '200 Level',
-          passwordHash,
+          passwordHash: studentPasswordHash,
         });
 
         const reservationId = randomUUID();
@@ -209,8 +217,8 @@ async function main() {
   });
 
   console.log(`Seed complete: 8 hostels, ${fillerCount} filler reservations, 1 demo student, 1 admin.`);
-  console.log(`Demo login: regNo=20211274242 (or the school email) / password=${SEED_PASSWORD}`);
-  console.log(`Admin login: admin@futo.edu.ng / password=${SEED_PASSWORD}`);
+  console.log(`Demo login: regNo=20211274242 (or the school email) / password=${STUDENT_SEED_PASSWORD}`);
+  console.log(`Admin login: hosteladmin@futo.com / password=${ADMIN_SEED_PASSWORD}`);
 }
 
 main()

@@ -48,9 +48,14 @@ npm run start:dev
 - API: `http://localhost:3000/api/v1`
 - Swagger docs: `http://localhost:3000/api/docs`
 
-Demo logins (from `prisma/seed.ts`), password `Password123` for both:
-- Student: reg no `20211274242` or `nwakanma.dominion.20211274242@futo.edu.ng`
-- Admin: `admin@futo.edu.ng`
+Demo logins created by `prisma/seed.ts`:
+
+| Account | Email / identifier | Password |
+|---|---|---|
+| Admin | `hosteladmin@futo.com` | `hosteladmin01` |
+
+These credentials are for the local/demo seed. Production admin credentials
+come from `ADMIN_EMAIL` and `ADMIN_PASSWORD` when `prisma:seed:prod` is run.
 
 ## Environment variables
 

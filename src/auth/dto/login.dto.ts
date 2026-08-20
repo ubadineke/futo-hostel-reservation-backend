@@ -5,7 +5,7 @@ import { IsIdentifier } from '../validators/identifier.validator';
 export class LoginDto {
   @ApiProperty({
     example: '20211274242',
-    description: '11-digit reg number, or a school email (firstname.lastname.regno@futo.edu.ng)',
+    description: '11-digit registration number or email address',
   })
   @IsString()
   @IsIdentifier()

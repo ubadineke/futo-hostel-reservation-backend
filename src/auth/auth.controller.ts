@@ -1,9 +1,19 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AdminLoginDto } from './dto/admin-login.dto';
+import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
 import { AuthResponseDto, StudentDto } from './dto/student.dto';
 import { AdminAuthResponseDto } from './dto/admin.dto';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
@@ -21,15 +31,23 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'Create a student account' })
   @ApiResponse({ status: 201, type: AuthResponseDto })
-  @ApiResponse({ status: 409, type: ErrorResponseDto, description: 'Identifier already registered' })
-  @ApiResponse({ status: 400, type: ErrorResponseDto, description: 'Invalid identifier or password' })
+  @ApiResponse({
+    status: 409,
+    type: ErrorResponseDto,
+    description: 'Identifier already registered',
+  })
+  @ApiResponse({
+    status: 400,
+    type: ErrorResponseDto,
+    description: 'Invalid identifier or password',
+  })
   @HttpCode(HttpStatus.CREATED)
   register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
     return this.authService.register(dto);
   }
 
   @Post('login')
-  @ApiOperation({ summary: 'Sign in with reg number or school email' })
+  @ApiOperation({ summary: 'Sign in with registration number or email address' })
   @ApiResponse({ status: 200, type: AuthResponseDto })
   @ApiResponse({ status: 401, type: ErrorResponseDto, description: 'Wrong credentials' })
   @HttpCode(HttpStatus.OK)
@@ -45,6 +63,24 @@ export class AuthController {
   @Roles('student')
   me(@CurrentUser() user: AuthUser): Promise<StudentDto> {
     return this.authService.me(user.id);
+  }
+
+  @Patch('me')
+  @ApiBearerAuth('bearer')
+  @ApiOperation({ summary: 'Update the current student profile' })
+  @ApiResponse({ status: 200, type: StudentDto })
+  @ApiResponse({
+    status: 409,
+    type: ErrorResponseDto,
+    description: 'Email address already belongs to another account',
+  })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('student')
+  updateMe(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdateStudentProfileDto,
+  ): Promise<StudentDto> {
+    return this.authService.updateProfile(user.id, dto);
   }
 
   @Post('logout')

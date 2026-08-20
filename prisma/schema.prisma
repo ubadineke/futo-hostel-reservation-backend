@@ -33,10 +33,8 @@ enum PaymentStatus {
 
 model Student {
   id           String   @id @default(uuid())
-  // Identifier at signup is a reg-no OR a school email — never both are known
-  // up front (see BACKEND-API.md `/auth/register`), so both are nullable and
-  // only the one supplied is unique-checked. name/dept/level are populated
-  // when derivable (email encodes surname.firstname) and null otherwise.
+  // Existing accounts may have incomplete legacy profiles, so these columns
+  // remain nullable. New registrations require every profile field.
   regNo        String?  @unique
   email        String?  @unique
   name         String?
